@@ -1,7 +1,7 @@
 import datetime
 from django.core.urlresolvers import reverse
 from django.db.models.sql.constants import QUERY_TERMS
-from django.utils.encoding import force_unicode
+from django.utils.encoding import smart_text
 from tastypie import fields
 
 from .utils import trailing_slash_or_none, urljoin_forced
@@ -135,14 +135,14 @@ class ResourceSwaggerMapping(object):
 
     def build_parameters_from_fields(self):
         parameters = []
-        for name, field in self.schema['fields'].items():
+        for name, field in list(self.schema['fields'].items()):
             # Ignore readonly fields
             if not field['readonly'] and not name in IGNORED_FIELDS:
                 parameters.append(self.build_parameter(
                     name=name,
                     dataType=field['type'],
                     required=not field['blank'],
-                    description=force_unicode(field['help_text']),
+                    description=smart_text(field['help_text']),
                 ))
         return parameters
 
@@ -162,7 +162,7 @@ class ResourceSwaggerMapping(object):
             'name': "order_by",
             'dataType': "String",
             'required': False,
-            'description': unicode("Orders the result set based on the selection. Ascending order by default, prepending the '-' sign change the sorting order to descending"),
+            'description': str("Orders the result set based on the selection. Ascending order by default, prepending the '-' sign change the sorting order to descending"),
             'allowableValues': {
                 'valueType' : "LIST",
                 'values': values
@@ -186,10 +186,10 @@ class ResourceSwaggerMapping(object):
                     name=name,
                     dataType=type,
                     required=False,
-                    description=force_unicode(desc),
+                    description=smart_text(desc),
                 ))
         if 'filtering' in self.schema and method.upper() == 'GET':
-            for name, field in self.schema['filtering'].items():
+            for name, field in list(self.schema['filtering'].items()):
                 # Avoid infinite recursion for self referencing resource (issue #22)
                 if not prefix.startswith('{}__'.format(name)):
                     # Integer value means this points to a related model
@@ -200,14 +200,14 @@ class ResourceSwaggerMapping(object):
                                 # Get the possible query terms from the current QuerySet.
                                 if hasattr(self.resource._meta.queryset.query.query_terms, 'keys'):
                                     # Django 1.4 & below compatibility.
-                                    field = self.resource._meta.queryset.query.query_terms.keys()
+                                    field = list(self.resource._meta.queryset.query.query_terms.keys())
                                 else:
                                     # Django 1.5+.
                                     field = self.resource._meta.queryset.query.query_terms
                             else:
                                 if hasattr(QUERY_TERMS, 'keys'):
                                     # Django 1.4 & below compatibility.
-                                    field = QUERY_TERMS.keys()
+                                    field = list(QUERY_TERMS.keys())
                                 else:
                                     # Django 1.5+.
                                     field = QUERY_TERMS
@@ -234,7 +234,7 @@ class ResourceSwaggerMapping(object):
 
                         for query in field:
                             if query == 'exact':
-                                description = force_unicode(schema_field['help_text'])
+                                description = smart_text(schema_field['help_text'])
 
                                 # Use a better description for related models with exact filter
                                 parameters.append(self.build_parameter(
@@ -250,7 +250,7 @@ class ResourceSwaggerMapping(object):
                                     name="%s%s__%s" % (prefix, name, query),
                                     dataType=dataType,
                                     required= False,
-                                    description=force_unicode(schema_field['help_text']),
+                                    description=smart_text(schema_field['help_text']),
                                 ))
 
         return parameters
@@ -275,13 +275,13 @@ class ResourceSwaggerMapping(object):
                 name=self._detail_uri_name(),
                 dataType=self.resource_pk_type,
                 description='Primary key of resource'))
-        for name, field in fields.items():
+        for name, field in list(fields.items()):
             parameters.append(self.build_parameter(
                 paramType="query",
                 name=name,
                 dataType=field.get("type", "string"),
                 required=field.get("required", True),
-                description=force_unicode(field.get("description", "")),
+                description=smart_text(field.get("description", "")),
             ))
 
         # For non-standard API functionality, allow the User to declaritively
@@ -289,13 +289,13 @@ class ResourceSwaggerMapping(object):
         # Minimal error checking here. If the User understands enough to want to
         # do this, assume that they know what they're doing.
         if hasattr(self.resource.Meta, 'custom_filtering'):
-            for name, field in self.resource.Meta.custom_filtering.items():
+            for name, field in list(self.resource.Meta.custom_filtering.items()):
                 parameters.append(self.build_parameter(
                         paramType = 'query',
                         name = name,
                         dataType = field['dataType'],
                         required = field['required'],
-                        description = unicode(field['description'])
+                        description = str(field['description'])
                         ))
 
 
@@ -419,7 +419,7 @@ class ResourceSwaggerMapping(object):
     def build_properties_from_fields(self, method='get'):
         properties = {}
 
-        for name, field in self.schema['fields'].items():
+        for name, field in list(self.schema['fields'].items()):
             # Exclude fields from custom put / post object definition
             if method in ['post','put']:
                 if name in self.WRITE_ACTION_IGNORED_FIELDS:
@@ -437,7 +437,7 @@ class ResourceSwaggerMapping(object):
                     field.get('type'),
                     # note: 'help_text' is a Django proxy which must be wrapped
                     # in unicode *specifically* to get the actual help text.
-                    force_unicode(field.get('help_text', '')),
+                    smart_text(field.get('help_text', '')),
                 )
             )
         return properties
